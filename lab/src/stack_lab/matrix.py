@@ -2,6 +2,9 @@
 
 Each layer has options with: label, pros, cons, best_for, watchouts.
 Blog posts and CLI share this module as the single source of truth.
+
+Option ids are stable API: recommend.py rules, tests, smoke_check and the
+blog posts reference them (e.g. `retrieval/store_qdrant`, `obs/otel_genai`).
 """
 from __future__ import annotations
 
@@ -16,10 +19,43 @@ LAYERS: dict[str, dict[str, Any]] = {
             {
                 "id": "langchain_langgraph",
                 "label": "LangChain / LangGraph",
-                "pros": ["Huge component ecosystem", "LangGraph explicit control flow", "Fast Python iteration"],
-                "cons": ["Thick abstractions hard to debug", "Version churn", "Java shops pay dual-stack cost"],
+                "pros": [
+                    "Huge component ecosystem",
+                    "LangGraph explicit control flow",
+                    "Fast Python iteration",
+                ],
+                "cons": [
+                    "Thick abstractions hard to debug",
+                    "Version churn",
+                    "Java shops pay dual-stack cost",
+                ],
                 "best_for": ["Python services", "Complex graphs / human-in-the-loop"],
-                "watchouts": ["Do not express every branch as nested chains", "Pin versions; keep escape hatches to raw SDK"],
+                "watchouts": [
+                    "Do not express every branch as nested chains",
+                    "Pin versions; keep escape hatches to raw SDK",
+                ],
+            },
+            {
+                "id": "pydantic_ai",
+                "label": "PydanticAI-style typed thin frameworks",
+                "pros": [
+                    "Type-checked tools & structured outputs",
+                    "Small dependency surface, easy to read end-to-end",
+                    "Framework-agnostic: swap models without rewriting logic",
+                ],
+                "cons": [
+                    "Fewer batteries: retrieval/tooling often hand-rolled",
+                    "You re-solve problems LangChain already ships",
+                    "Less copy-paste material for exotic flows",
+                ],
+                "best_for": [
+                    "Small dedicated teams that hate thick abstractions",
+                    "Services where typed I/O contracts matter more than components",
+                ],
+                "watchouts": [
+                    "Still need your own eval/telemetry plan",
+                    "Fine choice for the app layer; do not use as an excuse to skip orchestration design",
+                ],
             },
             {
                 "id": "llamaindex",
@@ -32,10 +68,32 @@ LAYERS: dict[str, dict[str, Any]] = {
             {
                 "id": "spring_ai",
                 "label": "Spring AI",
-                "pros": ["Native Spring Boot integration", "Advisors/tools fit enterprise Java", "Config/observability reuse"],
+                "pros": [
+                    "Native Spring Boot integration",
+                    "Advisors/tools fit enterprise Java",
+                    "Config/observability reuse",
+                ],
                 "cons": ["Younger ecosystem than Python", "Fewer copy-paste samples"],
                 "best_for": ["Existing Java microservices embedding AI", "Compliance-friendly JVM stacks"],
                 "watchouts": ["Keep retrieval design separate", "Reserve raw SDK path for critical calls"],
+            },
+            {
+                "id": "ts_edge_sdk",
+                "label": "Vercel AI SDK / Mastra (TS edge)",
+                "pros": [
+                    "First-class streaming UX primitives",
+                    "Colocates with frontend/edge runtimes",
+                    "TS type inference on tool schemas",
+                ],
+                "cons": [
+                    "Python-land research lands late or never",
+                    "Serverless limits long-running agent loops",
+                ],
+                "best_for": ["Product UIs where tokens stream straight to React", "Full-stack TS teams"],
+                "watchouts": [
+                    "Agent state/checkpoints in serverless need external stores",
+                    "Do not rebuild heavy retrieval logic client-side",
+                ],
             },
             {
                 "id": "raw_sdk",
@@ -78,11 +136,48 @@ LAYERS: dict[str, dict[str, Any]] = {
             },
             {
                 "id": "multi_agent",
-                "label": "Multi-agent",
+                "label": "Multi-agent (explicit roles on shared state)",
                 "pros": ["Role isolation", "Parallel specialties"],
                 "cons": ["Bus/termination/cost complexity"],
                 "best_for": ["Real division e.g. research + write + critique"],
                 "watchouts": ["Climb the complexity ladder first; shared blackboard > prompt stuffing"],
+            },
+            {
+                "id": "crewai_autogen",
+                "label": "CrewAI / AutoGen-style role-conversation frameworks",
+                "pros": [
+                    "Fast to demo multi-role narratives",
+                    "Conversation-as-orchestration is intuitive for non-engineers",
+                    "Bundled role/memory abstractions",
+                ],
+                "cons": [
+                    "Control flow lives in chat history — hard to test edges",
+                    "Budget/termination often implicit until it bills you",
+                    "Debugging = reading long transcripts",
+                ],
+                "best_for": ["Exploration, demos, non-side-effect creative pipelines"],
+                "watchouts": [
+                    "Prefer LangGraph-style explicit graphs once writes/money enter",
+                    "Pin conversation budgets; conversation != audit trail",
+                ],
+            },
+            {
+                "id": "openai_agents_sdk",
+                "label": "Hosted agent SDKs with handoffs (OpenAI Agents SDK style)",
+                "pros": [
+                    "Lightweight loop + handoff primitive in a few lines",
+                    "Built-in tracing hooks in the vendor console",
+                    "Low ceremony for single-vendor shops",
+                ],
+                "cons": [
+                    "Handoff graphs get tangled without external design",
+                    "Vendor-locked observability & tool format",
+                ],
+                "best_for": ["All-in-one-vendor products wanting agent structure fast"],
+                "watchouts": [
+                    "Export traces to your own OTel backend before it matters",
+                    "Handoffs are still control flow: budget & gate them like edges",
+                ],
             },
         ],
     },
@@ -105,15 +200,51 @@ LAYERS: dict[str, dict[str, Any]] = {
                 "pros": ["Semantic recall", "Multilingual potential"],
                 "cons": ["Weak exact match", "Corpus/model mismatch"],
                 "best_for": ["Natural-language intents"],
-                "watchouts": ["Bigger embedding ≠ fix bad chunking"],
+                "watchouts": ["Bigger embedding != fix bad chunking"],
             },
             {
                 "id": "hybrid",
-                "label": "Hybrid + RRF (+ rerank)",
+                "label": "Hybrid BM25 + vector (+ rerank)",
                 "pros": ["Complementary recall", "Production default"],
                 "cons": ["Pipeline complexity", "Rerank latency/cost"],
                 "best_for": ["Most production RAG"],
                 "watchouts": ["Prefer RRF over raw score add; filter ACL before ANN"],
+            },
+            {
+                "id": "contextual_chunks",
+                "label": "Contextual retrieval / enriched chunks",
+                "pros": [
+                    "Chunk-level context blurbs fix 'it/this' ambiguity",
+                    "Lifts both sparse and dense legs",
+                    "Works with existing stores",
+                ],
+                "cons": [
+                    "One extra LLM pass per chunk at index time",
+                    "Enrichment prompts need eval too",
+                ],
+                "best_for": ["Chunky policy/doc corpora with pronoun-heavy fragments"],
+                "watchouts": [
+                    "Batch enrichment offline; never enrich in the query path",
+                    "Version chunk metadata with the enrichment model",
+                ],
+            },
+            {
+                "id": "graph_rag",
+                "label": "GraphRAG / KG-augmented retrieval",
+                "pros": [
+                    "Multi-hop & aggregate questions ('summarize all policies about X')",
+                    "Explicit entities/relations are auditable",
+                ],
+                "cons": [
+                    "Extraction & graph maintenance cost",
+                    "Quality bounded by extraction accuracy",
+                    "Overkill for point lookups",
+                ],
+                "best_for": ["Relationship-heavy corpora: org structures, regulation maps, ontologies"],
+                "watchouts": [
+                    "Keep vector/hybrid as the default leg; graph for the questions it uniquely answers",
+                    "Budget extraction runs; drift detection on entity counts",
+                ],
             },
             {
                 "id": "store_faiss",
@@ -125,19 +256,37 @@ LAYERS: dict[str, dict[str, Any]] = {
             },
             {
                 "id": "store_chroma",
-                "label": "Chroma-like embedded stores",
-                "pros": ["Quick start"],
-                "cons": ["Prod governance DIY"],
+                "label": "Chroma (embedded)",
+                "pros": ["Quick start", "Zero extra infra for prototypes"],
+                "cons": ["Prod governance DIY", "Scale/HA on you"],
                 "best_for": ["Proto / small teams"],
                 "watchouts": ["Revisit before regulated prod"],
             },
             {
                 "id": "store_pgvector",
                 "label": "pgvector",
-                "pros": ["SQL filters + biz DB unity"],
-                "cons": ["Huge-scale ANN tradeoffs"],
+                "pros": ["SQL filters + biz DB unity", "One backup/HA story", "Joins with business tables"],
+                "cons": ["Huge-scale ANN tradeoffs", "Vector index vs write throughput tuning"],
                 "best_for": ["Mid scale with strong metadata filters"],
-                "watchouts": ["Index & vacuum ops matter"],
+                "watchouts": ["Index & vacuum ops matter; benchmark HNSW vs IVFFlat per workload"],
+            },
+            {
+                "id": "store_qdrant",
+                "label": "Qdrant (dedicated vector engine)",
+                "pros": [
+                    "Purpose-built filtering + ANN performance",
+                    "Payload filters feel first-class, not bolted on",
+                    "Self-host or cloud; quantization options",
+                ],
+                "cons": [
+                    "Another datastore to operate & back up",
+                    "Cross-store consistency with business DB is yours",
+                ],
+                "best_for": ["Vector-heavy workloads where pgvector index tuning hurts", "Teams wanting managed vector without full vendor DB"],
+                "watchouts": [
+                    "Keep biz truth in SQL; replicate IDs, not authority",
+                    "Load-test filtered queries — ANN + filter can degrade badly",
+                ],
             },
             {
                 "id": "store_managed",
@@ -173,10 +322,30 @@ LAYERS: dict[str, dict[str, Any]] = {
             {
                 "id": "mcp",
                 "label": "MCP (Model Context Protocol)",
-                "pros": ["Cross-host reuse", "Tools/resources/prompts unified"],
-                "cons": ["Process/ops & evolving security model"],
+                "pros": ["Cross-host reuse", "Tools/resources/prompts unified", "Growing server ecosystem"],
+                "cons": ["Process/ops & evolving security model", "Server quality varies wildly"],
                 "best_for": ["Same capability in IDE + agents + local hosts"],
-                "watchouts": ["Protocol ≠ authorization; confirm dangerous tools"],
+                "watchouts": [
+                    "Protocol != authorization; confirm dangerous tools",
+                    "Audit third-party MCP servers before granting them credentials",
+                ],
+            },
+            {
+                "id": "a2a",
+                "label": "Agent-to-Agent protocols (A2A-style)",
+                "pros": [
+                    "Cross-org agent discovery & task delegation story",
+                    "Clean agent capability cards (skills, auth) as contracts",
+                ],
+                "cons": [
+                    "Early/evolving spec; interop still settles",
+                    "Adds a second protocol to operate alongside MCP",
+                ],
+                "best_for": ["Federated setups: agents across teams/vendors delegating work"],
+                "watchouts": [
+                    "Treat remote agents like untrusted APIs: authz per task, rate limits, audit",
+                    "Do not adopt for internal single-team flows; MCP/HTTP suffice",
+                ],
             },
             {
                 "id": "http_gateway",
@@ -204,10 +373,36 @@ LAYERS: dict[str, dict[str, Any]] = {
             {
                 "id": "open_weights",
                 "label": "Open weights self-host",
-                "pros": ["Control & privacy", "Tunable"],
-                "cons": ["GPU & patch burden"],
+                "pros": ["Control & privacy", "Tunable", "Steady-state unit economics at high QPS"],
+                "cons": ["GPU & patch burden", "Serving-stack security is on you"],
                 "best_for": ["Sensitive data, steady high-QPS templates"],
                 "watchouts": ["Secure the serving stack like any prod service"],
+            },
+            {
+                "id": "llm_gateway",
+                "label": "Unified LLM gateway (LiteLLM / OpenRouter-style)",
+                "pros": [
+                    "One egress: auth, budgets, rate limits, failover in one place",
+                    "Provider swap = config, not code",
+                    "Central logging for cost attribution",
+                ],
+                "cons": [
+                    "Yet another hop & proxy to operate",
+                    "Vendor-specific features leak through lowest-common-denominator APIs",
+                ],
+                "best_for": ["Multi-provider fleets, org-wide cost control, fast failover"],
+                "watchouts": [
+                    "Gateway outage = full outage: HA it, keep a raw-SDK bypass path",
+                    "Test provider-quirk features (tool call formats) per route",
+                ],
+            },
+            {
+                "id": "batch_api",
+                "label": "Offline batch APIs",
+                "pros": ["Large discounts vs interactive", "No rate-limit babysitting"],
+                "cons": ["Hours of latency", "Not for interactive UX"],
+                "best_for": ["Backfills, doc enrichment, nightly eval runs"],
+                "watchouts": ["Batch input schemas differ subtly from chat APIs; keep a shared validator"],
             },
             {
                 "id": "routing_mix",
@@ -241,12 +436,47 @@ LAYERS: dict[str, dict[str, Any]] = {
                 "watchouts": ["Log prompts/tools carefully re PII"],
             },
             {
+                "id": "otel_genai",
+                "label": "OpenTelemetry GenAI semantic-convention spans",
+                "pros": [
+                    "Vendor-neutral span names/attrs for prompts, completions, tools",
+                    "Swap tracing backends without re-instrumenting",
+                    "Pairs with existing microservice traces (one trace = one request)",
+                ],
+                "cons": [
+                    "Conventions still versioning (semconv incubating)",
+                    "Some vendor SDKs emit vendor formats first",
+                ],
+                "best_for": ["Multi-vendor stacks and orgs with an OTel collector already"],
+                "watchouts": [
+                    "Decide prompt-content capture policy before enabling, not after",
+                    "Keep gen_ai spans correlated with business request ids",
+                ],
+            },
+            {
                 "id": "golden_offline",
                 "label": "Golden-set offline eval",
                 "pros": ["Regression gates", "Comparable runs"],
                 "cons": ["Set maintenance"],
                 "best_for": ["CI quality gate before release"],
                 "watchouts": ["Split intents (ID vs semantic) in the set"],
+            },
+            {
+                "id": "llm_judge",
+                "label": "LLM-as-judge offline scoring",
+                "pros": [
+                    "Scales grading beyond hand-labeling",
+                    "Consistent rubric across candidates",
+                ],
+                "cons": [
+                    "Judge has its own failure modes: position bias, verbosity bias",
+                    "Calibration cost against human labels",
+                ],
+                "best_for": ["Grading long-form answers, pairwise model comparison, RAG faithfulness"],
+                "watchouts": [
+                    "Calibrate on ~100 human-labeled pairs first; re-check quarterly",
+                    "Never let a judge alone gate a release; pair with metric + spot checks",
+                ],
             },
             {
                 "id": "online_eval",
@@ -272,12 +502,35 @@ LAYERS: dict[str, dict[str, Any]] = {
                 "watchouts": ["Evaluate router like a model"],
             },
             {
-                "id": "caching",
-                "label": "Caching (exact / careful semantic)",
-                "pros": ["Latency & $ wins"],
-                "cons": ["Stale or wrong semantic hits"],
-                "best_for": ["Hot exact prompts, retrieval keys"],
-                "watchouts": ["Prefer exact caches; semantic needs TTL & monitoring"],
+                "id": "prompt_cache",
+                "label": "Prompt caching / KV reuse (provider-side)",
+                "pros": [
+                    "Big discounts on repeated system prompts & few-shot blocks",
+                    "Latency drops with zero correctness risk",
+                ],
+                "cons": [
+                    "Cache-hit rules differ per provider (prefix, TTL)",
+                    "Cache misses silently at budget time",
+                ],
+                "best_for": ["Stable system prompts + long tool schemas on every call"],
+                "watchouts": [
+                    "Structure prompts: cacheable prefix first, dynamic tail last",
+                    "Track cache-hit rate as a first-class metric",
+                ],
+            },
+            {
+                "id": "semantic_cache",
+                "label": "Semantic cache (embedding-similarity responses)",
+                "pros": ["Hits on paraphrases exact cache misses", "Cuts cost on FAQ-like traffic"],
+                "cons": [
+                    "Wrong hit = confidently wrong answer served to user",
+                    "Threshold tuning; embedding drift; invalidation hard",
+                ],
+                "best_for": ["High-volume, low-stakes Q&A where a near-miss is tolerable"],
+                "watchouts": [
+                    "TTL + hit-rate QA + bypass for auth/transactional queries",
+                    "Log every semantic hit for sampling; never cache side-effect answers",
+                ],
             },
             {
                 "id": "guardrails",
@@ -285,7 +538,10 @@ LAYERS: dict[str, dict[str, Any]] = {
                 "pros": ["Policy enforcement beyond prompts"],
                 "cons": ["False positives / ops"],
                 "best_for": ["Any tool with side effects"],
-                "watchouts": ["Prompt-only safety is not enough"],
+                "watchouts": [
+                    "Prompt-only safety is not enough",
+                    "Measure guardrail precision/recall on a labeled abuse set; a noisy guardrail gets switched off",
+                ],
             },
             {
                 "id": "pii",
@@ -318,3 +574,11 @@ def get_layer(key: str) -> dict[str, Any]:
 
 def all_layer_keys() -> list[str]:
     return list(LAYER_ORDER)
+
+
+def find_option(layer_key: str, option_id: str) -> dict[str, Any]:
+    layer = get_layer(layer_key)
+    for opt in layer["options"]:
+        if opt["id"] == option_id:
+            return opt
+    raise KeyError(f"unknown option {option_id!r} in layer {layer_key!r}")

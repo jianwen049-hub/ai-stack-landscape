@@ -29,10 +29,24 @@ def main() -> int:
     for need in ("langchain_langgraph", "llamaindex", "spring_ai", "raw_sdk"):
         assert need in fw_ids, need
 
+    for layer_key, needed in {
+        "frameworks": ("pydantic_ai", "ts_edge_sdk"),
+        "agents": ("crewai_autogen", "openai_agents_sdk"),
+        "retrieval": ("store_qdrant", "graph_rag", "contextual_chunks"),
+        "protocols": ("a2a",),
+        "serving": ("llm_gateway", "batch_api"),
+        "obs": ("otel_genai", "llm_judge"),
+        "cost": ("prompt_cache", "semantic_cache"),
+    }.items():
+        ids = {o["id"] for o in LAYERS[layer_key]["options"]}
+        for need in needed:
+            assert need in ids, f"{layer_key}/{need}"
+
     assert cmd_layers() == 0
     assert cmd_compare("frameworks") == 0
     assert cmd_compare("all") == 0
     assert cmd_recommend("java spring rag mcp 审批 pii") == 0
+    assert cmd_recommend("多供应商 qdrant otel 语义缓存 crewai") == 0
     assert cmd_decide() == 0
 
     loader = unittest.TestLoader()
